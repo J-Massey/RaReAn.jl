@@ -1,7 +1,5 @@
 using NPZ
-using Plots; pythonplot()
-using Zygote
-using CoupledFields: ndgrid
+# using Plots; pythonplot()
 
 # create a class to hold of the fluid properties
 mutable struct Fluid
@@ -17,29 +15,14 @@ end
 
 # initialise the fluid properties
 function Fluid()
-    ts = npzread("./data/fluid.npy")
+    ts = npzread(raw"../data/fluid.npy")
 
     x,y,z = collect(ts[:, 1, :, :, :]), collect(ts[:, 2, :, :, :]), collect(ts[:, 3, :, :, :])
-    u = vec(collect(ts[:, 4, :, :, :]))
+    u = (collect(ts[:, 4, :, :, :]))
     v = collect(ts[:, 5, :, :, :])
     w = collect(ts[:, 6, :, :, :])
     p = collect(ts[:, 7, :, :, :])
 
-    println(typeof(u))
-
     return Fluid(x,y,z,u,v,w,p)
 end
 
-# function ω_z(x, y, u,v)
-#     ∂u_∂y = jacobian(u, y)[2]
-#     ∂v_∂x = jacobian(v, x)[1]
-#     return ∂v_∂x - ∂u_∂y
-# end
-
-# simple plot of the flow
-flow = Fluid()
-
-# ω = ω_z(flow.x[1,:,:,1], flow.y[1,:,:,1], flow.u[1,:,:,1], flow.v[1,:,:,1])
-
-plot = contour(flow.x[1,:,:,1], flow.y[1,:,:,1], flow.v[1,:,:,1])
-savefig("./flow.png")
