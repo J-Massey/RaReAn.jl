@@ -1,5 +1,3 @@
-using DrWatson
-@quickactivate "Data-driven resolvent"
 using LinearAlgebra
 
 function adj(A,Q)

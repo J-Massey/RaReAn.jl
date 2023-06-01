@@ -2,7 +2,7 @@ using LinearAlgebra
 
 function DMD(X, r)
     X1 = X
-    X2 = circshift(X, 1)
+    X2 = circshift(X, 2)
     # Perform SVD
     U2, Σ2, V2 = svd(X1)
     U = U2[:, 1:r]
@@ -19,7 +19,7 @@ end
 
 function fbDMD(X, r)
     X1 = X
-    X2 = circshift(X, 1)
+    X2 = circshift(X, (0,1))
     # Perform SVD
     U2, Σ2, V2 = svd(X1)
     U = U2[:, 1:r]
@@ -46,7 +46,7 @@ end
 function fbDMD_time(X, r)
     # fbDMD with time dynamics
     X1 = X
-    X2 = circshift(X, 1)
+    X2 = circshift(X, 2)
     # Perform SVD
     U2, Σ2, V2 = svd(X1)
     U = U2[:, 1:r]
@@ -88,7 +88,69 @@ function fbDMD_time(X, r)
     return Phi, Ã, u_dmd
 end
 
+function ddDMD(X,Y,dt,r,tol=1e-6)
+    nt = size(X,2)
+    U, Σ, V = svd(X, full=false)
+    r = minimum((r, size(U,2)))
+    Ur = @view U[:,1:r]
+    Σr = @view Diagonal(Σ)[1:r,1:r]
+    Vr = @view V[:,1:r]
+    Ã = (Ur'*Y)*(Vr/Σr)
 
+    ρ, W, Wadj = eigen_dual(Ã, Array(I(r)), true)
+    Ψ = Y*(Vr/Σr*W)
+    Φ = Ur*Wadj   # Projected DMD modes
+    @inbounds for i=1:r
+        Ψ[:,i] = Ψ[:,i]/sqrt(Ψ[:,i]'*Ψ[:,i])
+        Φ[:,i] = Φ[:,i]/sqrt(Φ[:,i]'*Φ[:,i])
+        Ψ[:,i] = Ψ[:,i]/(Φ[:,i]'*Ψ[:,i])
+    end
+    b = Ψ\(X[:,1])
+    large = abs.(b).>tol*maximum(abs.(b))
+    Ψ = Ψ[:,large]
+    Φ = Φ[:,large]
+    ρ = ρ[large]
+    λ = log.(ρ)/dt
+    b = b[large]
+    return λ, Ψ, Φ, b
+end
+
+function eigen_dual(A,Q,log_sort::Bool=false)
+    Aadj = adj(A,Q)
+    if log_sort
+        λ, V = eigen(A, sortby=x->imag(log(x)))
+        λ̄, W = eigen(Aadj, sortby=x->-imag(log(x)))
+        p = sortperm(-real(log.(λ)))
+        p̄ = sortperm(-real(log.(λ̄)))
+    else
+        λ, V = eigen(A, sortby=x->imag(x))
+        λ̄, W = eigen(Aadj, sortby=x->-imag(x))
+        p = sortperm(-real(λ))
+        p̄ = sortperm(-real(λ̄))
+    end
+    V = V[:,p]
+    λ = λ[p]
+    W = W[:,p̄]
+    λ̄ = λ̄[p̄]
+    V = normalize_basis(V,Q)
+    W = normalize_basis(W,Q)
+    for i=1:size(V,2)
+        V[:,i] = V[:,i]/(W[:,i]'*Q*V[:,i])
+    end
+    return λ, V, W
+end
+
+function adj(A,Q)
+    Aadj = Q\A'*Q
+    return Aadj
+end
+
+function normalize_basis(V,Q)
+    for i=1:size(V,2)
+        V[:,i] = V[:,i]/sqrt(V[:,i]'*Q*V[:,i])
+    end
+    return V
+end
 ################################################
 #            --Testing Functions--             #
 ################################################
